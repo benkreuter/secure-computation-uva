@@ -1,0 +1,85 @@
+define(CELL_SIZE, 8)
+define(SEQU_SIZE, eval(2**(CELL_SIZE-1)-1))
+
+
+
+defun min2(x,y){
+ret := x;
+
+if y < x then 
+    ret := y;
+end
+
+return ret;
+}
+
+defun min3(x,y,z)
+{
+  ret := min2(x,y);
+  ret := min2(ret,z);
+  return ret;
+}
+
+
+
+
+//
+// Edit distance
+//
+
+defvar a := input.0{SEQU_SIZE};
+defvar b := input.1{SEQU_SIZE};
+
+this_row := 0{eval(SEQU_SIZE*CELL_SIZE)};
+array(this_row, CELL_SIZE);
+init := 0{CELL_SIZE};
+for i from 0 to decr(SEQU_SIZE)
+begin
+    init := init + 1{CELL_SIZE};
+    this_row[i] := init;
+end
+
+init := 0{CELL_SIZE};
+prev_row := this_row;
+prev_cell := 0{CELL_SIZE};
+for i from 0 to decr(SEQU_SIZE)
+begin
+    d_cell := init;
+    l_cell := init + 1{CELL_SIZE};
+    u_cell := prev_row[0];
+
+    init := l_cell;
+
+    min_cell := min3(d_cell, u_cell, l_cell);
+
+    if a{i} == b{0} then
+        this_row[0] := d_cell;
+    else
+        this_row[0] := min_cell + 1{CELL_SIZE};
+    end
+
+    prev_cell := this_row[0];
+
+
+    for j from 1 to decr(SEQU_SIZE)
+    begin
+        d_cell := u_cell;
+        l_cell := prev_cell;
+        u_cell := prev_row[j];
+
+
+        min_cell := min3(d_cell, u_cell, l_cell);
+
+        if a{i} == b{j} then
+            this_row[j] := d_cell;
+        else
+            this_row[j] := min_cell + 1{CELL_SIZE};
+        end
+
+        prev_cell := this_row[j];
+    end
+    prev_row := this_row;
+end
+
+one_at_a_time := this_row[decr(SEQU_SIZE)];
+output.0 := one_at_a_time;
