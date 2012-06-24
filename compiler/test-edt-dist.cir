@@ -1,4 +1,4 @@
-define(CELL_SIZE, 8)
+define(CELL_SIZE, 9)
 define(SEQU_SIZE, eval(2**(CELL_SIZE-1)-1))
 
 

@@ -22,7 +22,6 @@ uint64_t inputs = 0;
 
 uint64_t xor = 0, nxor = 0;
 
-//FILE * map_file;
 FILE * binary_file;
 FILE * store_file;
 DB* map_file;

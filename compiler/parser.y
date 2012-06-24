@@ -1666,7 +1666,7 @@ void array_fetch_destroy(struct ast * tree)
 {
   struct array_fetch_data* data = tree->data;
   free(data->var);
-  free(data->index);
+  if(data->index != 0) free(data->index);
 }
 
 void * array_assign_action(struct ast * tree)
@@ -2383,6 +2383,8 @@ block: lval SEM {$$ = $1;}
   newnode->data= data;
   newnode->destroy = null_destroy;
   newnode->action = array_maker_action;
+  newnode->left = 0;
+  newnode->right = 0;
   //  newnode->accept = accept_standard;
   newnode->line = yylineno;
   $$ = newnode;
@@ -2466,6 +2468,7 @@ lval: cat
   data->var = malloc(strlen($1)+1);
   strcpy(data->var, $1);
   data->idx = $3;
+  data->index = 0;
   newnode->left = 0;
   newnode->right = (struct ast *) $6;
   newnode->action = array_assign_action;//variable_assignment_action;
@@ -2746,6 +2749,7 @@ term: numeric
 
   data->varidx = 0;
   data->idx = $3;
+  data->index = 0;
 
   //sprintf(name, "$$$%s%d", $1, $3);
   newnode->left = newnode->right = 0;
