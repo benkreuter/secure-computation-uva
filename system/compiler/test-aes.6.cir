@@ -1,0 +1,414 @@
+define(mul, `
+//
+// $1 := $2 * $3 (mod 27)
+//
+mul_a := $2;
+mul_b := $3;
+
+mul_o := zero;
+
+if mul_b{0} == 1{1} then
+    mul_o := mul_a;
+end
+
+for mul_i from 1 to 7
+begin
+    mul_d := mul_a{7};// & onetwoeight;
+    mul_a := mul_a << 1;// + mul_a;
+
+    if mul_d == 1{1} then //onetwoeight then
+        mul_a := mul_a ^ twentyseven;
+    end
+
+    if mul_b{mul_i} == 1{1} then
+        mul_o := mul_o ^ mul_a;
+    end
+end
+
+$1 := mul_o')
+
+define(sbox, `
+x := $2;
+x := x{0}.x{1}.x{2}.x{3}.x{4}.x{5}.x{6}.x{7};
+y14 := x{3} ^ x{5};
+y13 := x{0} ^ x{6};
+y9 := x{0} ^ x{3};
+
+y8 := x{0} ^ x{5};
+t0 := x{1} ^ x{2};
+y1 := t0 ^ x{7};
+
+y4 := y1 ^ x{3};
+y12 := y13 ^ y14;
+y2 := y1 ^ x{0};
+
+y5 := y1 ^ x{6};
+y3 := y5 ^ y8;
+t1 := x{4} ^ y12;
+
+y15 := t1 ^ x{5};
+y20 := t1 ^ x{1};
+y6 := y15 ^ x{7};
+
+y10 := y15 ^ t0;
+y11 := y20 ^ y9;
+y7 := x{7} ^ y11;
+
+y17 := y10 ^ y11;
+y19 := y10 ^ y8;
+y16 := t0 ^ y11;
+
+y21 := y13 ^ y16;
+y18 := x{0} ^ y16;
+
+
+
+t2 := y12 & y15;
+t3 := y3 & y6;
+t4 := t3 ^ t2;
+
+t5 := y4 & x{7};
+t6 := t5 ^ t2;
+t7 := y13 & y16;
+
+t8 := y5 & y1;
+t9 := t8 ^ t7;
+t10 := y2 & y7;
+
+t11 := t10 ^ t7;
+t12 := y9 & y11;
+t13 := y14 & y17;
+
+t14 := t13 ^ t12;
+t15 := y8 & y10;
+t16 := t15 ^ t12;
+
+t17 := t4 ^ t14;
+t18 := t6 ^ t16;
+t19 := t9 ^ t14;
+
+t20 := t11 ^ t16;
+t21 := t17 ^ y20;
+t22 := t18 ^ y19;
+
+t23 := t19 ^ y21;
+t24 := t20 ^ y18;
+
+t25 := t21 ^ t22;
+t26 := t21 & t23;
+t27 := t24 ^ t26;
+
+t28 := t25 & t27;
+t29 := t28 ^ t22;
+t30 := t23 ^ t24;
+t31 := t22 ^ t26;
+t32 := t31 & t30;
+t33 := t32 ^ t24;
+t34 := t23 ^ t33;
+t35 := t27 ^ t33;
+t36 := t24 & t35;
+t37 := t36 ^ t34;
+t38 := t27 ^ t36;
+t39 := t29 & t38;
+t40 := t25 ^ t39;
+t41 := t40 ^ t37;
+t42 := t29 ^ t33;
+t43 := t29 ^ t40;
+t44 := t33 ^ t37;
+t45 := t42 ^ t41;
+
+z0 := t44 & y15;
+z1 := t37 & y6;
+z2 := t33 & x{7};
+z3 := t43 & y16;
+z4 := t40 & y1;
+z5 := t29 & y7;
+z6 := t42 & y11;
+z7 := t45 & y17;
+z8 := t41 & y10;
+z9 := t44 & y12;
+z10 := t37 & y3;
+z11 := t33 & y4;
+z12 := t43 & y13;
+z13 := t40 & y5;
+z14 := t29 & y2;
+z15 := t42 & y9;
+z16 := t45 & y14;
+z17 := t41 & y8;
+
+t46 := z15 ^ z16;
+
+
+
+
+
+t47 := z10 ^ z11;
+t48 := z5 ^ z13;
+t49 := z9 ^ z10;
+t50 := z2 ^ z12;
+t51 := z2 ^ z5;
+t52 := z7 ^ z8;
+t53 := z0 ^ z3;
+t54 := z6 ^ z7;
+t55 := z16 ^ z17;
+t56 := z12 ^ t48;
+t57 := t50 ^ t53;
+t58 := z4 ^ t46;
+t59 := z3 ^ t54;
+t60 := t46 ^ t57; 
+t61 := z14 ^ t57;
+t62 := t52 ^ t58;
+t63 := t49 ^ t58;
+t64 := z4 ^ t59;
+t65 := t61 ^ t62; 
+t66 := z1 ^ t63;
+
+s := 0{8};
+
+s{0} := t59 ^ t63;
+s{6} := (t56 ^ t62) ^ 1; 
+s{7} := (t48 ^ t60) ^ 1;
+t67 := t64 ^ t65;
+s{3} := t53 ^ t66;
+s{4} := t51 ^ t66;
+s{5} := t47 ^ t65;
+s{1} := (t64 ^ s{3}) ^ 1; 
+s{2} := (t55 ^ t67) ^ 1;
+
+s := s{0}.s{1}.s{2}.s{3}.s{4}.s{5}.s{6}.s{7};
+
+$1 := s;')
+
+define(sub_bytes, `
+//
+// $1[i] := SBOX($2[i]); for i = 0 to 15
+//
+for sub_i from 0 to 14
+begin
+    sbox($1[sub_i], $2[sub_i]);
+end
+
+sbox($1[15], $2[15])')
+
+
+
+define(shift_rows, `
+//
+// $1 := SHIFT_ROWS($2);
+//
+
+
+$1[ 0] := $2[ 0]; // 1st row no change
+$1[ 4] := $2[ 4];
+$1[ 8] := $2[ 8];
+$1[12] := $2[12];
+
+$1[ 1] := $2[ 5]; // 2nd row shift 1
+$1[ 5] := $2[ 9];
+$1[ 9] := $2[13];
+$1[13] := $2[ 1];
+
+$1[ 2] := $2[10]; // 3rd row shift 2
+$1[ 6] := $2[14];
+$1[10] := $2[ 2];
+$1[14] := $2[ 6];
+
+$1[ 3] := $2[15]; // 4th row shift 3
+$1[ 7] := $2[ 3];
+$1[11] := $2[ 7];
+$1[15] := $2[11]')
+
+
+define(mul2, `
+mul_a := $2;
+mul_b := mul_a << 1;
+h := mul_a{7};
+if h == 1{1} then
+   mul_b := mul_b ^ twentyseven;
+end
+
+$1 := mul_b;')
+
+
+define(mix_columns, `
+
+
+
+for mix_i from 0 to 15
+begin
+    mul2(mix_b[mix_i],  $2[mix_i]);
+end
+
+$1[ 0] := mix_b[ 0] ^ $2[ 3] ^ $2[ 2] ^ mix_b[ 1] ^ $2[ 1];
+$1[ 1] := mix_b[ 1] ^ $2[ 0] ^ $2[ 3] ^ mix_b[ 2] ^ $2[ 2];
+$1[ 2] := mix_b[ 2] ^ $2[ 1] ^ $2[ 0] ^ mix_b[ 3] ^ $2[ 3];
+$1[ 3] := mix_b[ 3] ^ $2[ 2] ^ $2[ 1] ^ mix_b[ 0] ^ $2[ 0];
+
+$1[ 4] := mix_b[ 4] ^ $2[ 7] ^ $2[ 6] ^ mix_b[ 5] ^ $2[ 5];
+$1[ 5] := mix_b[ 5] ^ $2[ 4] ^ $2[ 7] ^ mix_b[ 6] ^ $2[ 6];
+$1[ 6] := mix_b[ 6] ^ $2[ 5] ^ $2[ 4] ^ mix_b[ 7] ^ $2[ 7];
+$1[ 7] := mix_b[ 7] ^ $2[ 6] ^ $2[ 5] ^ mix_b[ 4] ^ $2[ 4];
+
+$1[ 8] := mix_b[ 8] ^ $2[11] ^ $2[10] ^ mix_b[ 9] ^ $2[ 9];
+$1[ 9] := mix_b[ 9] ^ $2[ 8] ^ $2[11] ^ mix_b[10] ^ $2[10];
+$1[10] := mix_b[10] ^ $2[ 9] ^ $2[ 8] ^ mix_b[11] ^ $2[11];
+$1[11] := mix_b[11] ^ $2[10] ^ $2[ 9] ^ mix_b[ 8] ^ $2[ 8];
+
+$1[12] := mix_b[12] ^ $2[15] ^ $2[14] ^ mix_b[13] ^ $2[13];
+$1[13] := mix_b[13] ^ $2[12] ^ $2[15] ^ mix_b[14] ^ $2[14];
+$1[14] := mix_b[14] ^ $2[13] ^ $2[12] ^ mix_b[15] ^ $2[15];
+$1[15] := mix_b[15] ^ $2[14] ^ $2[13] ^ mix_b[12] ^ $2[12]')
+
+
+
+define(round_keys, `
+//    function block roundKey(byte rcon, block prevKey)
+//    {
+//        roundKey[ 0] = prevKey[ 0] ^ Sbox(prevKey[13]) ^ rcon;
+//        roundKey[ 1] = prevKey[ 1] ^ Sbox(prevKey[14]);
+//        roundKey[ 2] = prevKey[ 2] ^ Sbox(prevKey[15]);
+//        roundKey[ 3] = prevKey[ 3] ^ Sbox(prevKey[12]);
+sbox($1[0], $3[13]); $1[0] := $3[0] ^ $1[0] ^ $2;
+sbox($1[1], $3[14]); $1[1] := $3[1] ^ $1[1];
+sbox($1[2], $3[15]); $1[2] := $3[2] ^ $1[2];
+sbox($1[3], $3[12]); $1[3] := $3[3] ^ $1[3];
+
+//        roundKey[ 4] = prevKey[ 4] ^ roundKey[ 0];
+//        roundKey[ 5] = prevKey[ 5] ^ roundKey[ 1];
+//        roundKey[ 6] = prevKey[ 6] ^ roundKey[ 2];
+//        roundKey[ 7] = prevKey[ 7] ^ roundKey[ 3];
+//        roundKey[ 8] = prevKey[ 8] ^ roundKey[ 4];
+//        roundKey[ 9] = prevKey[ 9] ^ roundKey[ 5];
+//        roundKey[10] = prevKey[10] ^ roundKey[ 6];
+//        roundKey[11] = prevKey[11] ^ roundKey[ 7];
+//        roundKey[12] = prevKey[12] ^ roundKey[ 8];
+//        roundKey[13] = prevKey[13] ^ roundKey[ 9];
+//        roundKey[14] = prevKey[14] ^ roundKey[10];
+//        roundKey[15] = prevKey[15] ^ roundKey[11];
+$1[ 4] := $3[ 4] ^ $1[ 0];
+$1[ 5] := $3[ 5] ^ $1[ 1];
+$1[ 6] := $3[ 6] ^ $1[ 2];
+$1[ 7] := $3[ 7] ^ $1[ 3];
+$1[ 8] := $3[ 8] ^ $1[ 4];
+$1[ 9] := $3[ 9] ^ $1[ 5];
+$1[10] := $3[10] ^ $1[ 6];
+$1[11] := $3[11] ^ $1[ 7];
+$1[12] := $3[12] ^ $1[ 8];
+$1[13] := $3[13] ^ $1[ 9];
+$1[14] := $3[14] ^ $1[10];
+$1[15] := $3[15] ^ $1[11]')
+
+
+
+define(bits_to_array, `
+//
+// $1[0-15] := $2;
+//
+$1[ 0] := $2{  0,  7};
+$1[ 1] := $2{  8, 15};
+$1[ 2] := $2{ 16, 23};
+$1[ 3] := $2{ 24, 31};
+$1[ 4] := $2{ 32, 39};
+$1[ 5] := $2{ 40, 47};
+$1[ 6] := $2{ 48, 55};
+$1[ 7] := $2{ 56, 63};
+$1[ 8] := $2{ 64, 71};
+$1[ 9] := $2{ 72, 79};
+$1[10] := $2{ 80, 87};
+$1[11] := $2{ 88, 95};
+$1[12] := $2{ 96,103};
+$1[13] := $2{104,111};
+$1[14] := $2{112,119};
+$1[15] := $2{120,127}')
+
+
+
+define(vec_xor,`
+//
+// $1[i] := $2[i] ^ $3[i] for i = 0 to 15
+//
+for vec_i from 0 to 14
+begin
+    $1[vec_i] := $2[vec_i] ^ $3[vec_i];
+end
+
+$1[15] := $2[15] ^ $3[15]')
+
+
+
+define(vec_dup,`
+
+for vec_i from 0 to 14
+begin
+    $1[vec_i] := $2[vec_i];
+end
+
+$1[15] := $2[15]')
+
+
+//
+// Aes circuit
+//
+
+defvar key := input.0{128};
+defvar txt := input.1{128};
+
+//        state = input.alice;
+//        key = input.bob;
+//        rcon = 141;
+
+bits_to_array(key_vec, key);
+bits_to_array(txt_vec, txt);
+rcon := 141{8};
+
+//        for (i = 0 to 9)
+//        {
+//            state = state ^ key;
+//            state = subBytes(state);
+//            state = shiftRows(state);
+//            if (i < 9)
+//                state = mixColumns(state);
+//            rcon = Mul(2, rcon);
+//            key = roundKey(rcon, key);
+//        }
+
+two := 2{8};
+onetwoeight := 128{8};
+ninetynine := 99{8};
+twentyseven := 27{8};
+zero := 0{8};
+two := 2{8};
+
+for aes_i from 0 to 8
+begin
+    vec_xor(txt_vec_xor, txt_vec, key_vec);
+    sub_bytes(txt_vec_sub, txt_vec_xor);
+    shift_rows(txt_vec_shft, txt_vec_sub);
+    mix_columns(txt_vec, txt_vec_shft);
+
+    // key scheduling
+    mul2(rcon, rcon);
+    vec_dup(old_key_vec, key_vec);
+    round_keys(key_vec, rcon, old_key_vec);
+end
+
+vec_xor(txt_vec_xor, txt_vec, key_vec);
+sub_bytes(txt_vec_sub, txt_vec_xor);
+shift_rows(txt_vec_shft, txt_vec_sub);
+mul(rcon, two, rcon);
+vec_dup(old_key_vec, key_vec);
+round_keys(key_vec, rcon, old_key_vec);
+
+vec_xor(out_vec, txt_vec_shft, key_vec);
+
+for i from 0 to 15
+begin
+    one_at_a_time := out_vec[i];
+    output.1 := one_at_a_time;
+end
+
+//for i from 0 to 15
+//begin
+//    one_at_a_time := out_vec[i];
+//    output.1 := one_at_a_time;
+//end

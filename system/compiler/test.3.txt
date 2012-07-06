@@ -1,0 +1,29 @@
+defvar x:=input.0{32};
+defvar y:=input.1{2};
+
+a:=0;
+b:=0;
+c:=0;
+q:=x;
+
+for i from 0 to 31 begin
+
+      if b == 1 then
+         c:=1;
+      end
+      
+   if x{i} == y{1} then
+            b := a;
+   end
+   if x{i} == (y{1}+1) then
+      a := 0;
+   end
+
+   if a == 0 then
+
+         a := x{i} ^ y{0} ^ 1;
+
+   end
+end
+
+output.0:=c;

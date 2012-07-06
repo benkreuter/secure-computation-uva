@@ -1,0 +1,72 @@
+define(bits_to_array, `
+//
+// $1[0-15] := $2;
+//
+$1[ 0] := $2{  0,  7};
+$1[ 1] := $2{  8, 15};
+$1[ 2] := $2{ 16, 23};
+$1[ 3] := $2{ 24, 31};
+$1[ 4] := $2{ 32, 39};
+$1[ 5] := $2{ 40, 47};
+$1[ 6] := $2{ 48, 55};
+$1[ 7] := $2{ 56, 63};
+$1[ 8] := $2{ 64, 71};
+$1[ 9] := $2{ 72, 79};
+$1[10] := $2{ 80, 87};
+$1[11] := $2{ 88, 95};
+$1[12] := $2{ 96,103};
+$1[13] := $2{104,111};
+$1[14] := $2{112,119};
+$1[15] := $2{120,127}')
+
+
+
+define(mul, `
+//
+// $1 := $2 * $3 (mod 27)
+//
+mul_a := $2;
+mul_b := $3;
+
+mul_c[0] := mul_b{0};
+mul_c[1] := mul_b{1};
+mul_c[2] := mul_b{2};
+mul_c[3] := mul_b{3};
+mul_c[4] := mul_b{4};
+mul_c[5] := mul_b{5};
+mul_c[6] := mul_b{6};
+mul_c[7] := mul_b{7};
+
+mul_o := 0{8};
+
+if mul_c[0] == 1{1} then
+    mul_o := mul_a;
+end
+
+for mul_i from 1 to 7
+begin
+    mul_d := mul_a & 128{8};
+    mul_a := mul_a + mul_a;
+
+    if mul_d == 128{8} then
+        mul_a := mul_a ^ 27{8};
+    end
+
+    if mul_c[mul_i] == 1{1} then
+        mul_o := mul_o ^ mul_a;
+    end
+end
+
+$1 := mul_o')
+
+defvar key := input.0{128};
+defvar stt := input.1{128};
+
+bits_to_array(key_vec, key);
+bits_to_array(stt_vec, stt);
+
+for i from 0 to 15
+begin
+    mul(one_at_a_time, stt_vec[i], key_vec[i]);
+    output.0 := one_at_a_time;
+end

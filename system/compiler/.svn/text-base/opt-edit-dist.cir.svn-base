@@ -1,0 +1,123 @@
+define(vec_dup,`
+//
+// $1[i] := $2[i]; for i = 0 to decr($3)
+
+for vec_i from 0 to decr($3)
+begin
+    $1[vec_i] := $2[vec_i];
+end
+')
+
+define(SEQU_SIZE, `7')
+
+
+define(min2, `
+//
+// $1 := min($2, $3);
+//
+$1 := $2;
+
+if $1 > $3 then
+    $1 := $3;
+end
+')
+
+
+
+define(min3, `
+//===here
+min2($1, $2, $3)
+min2($1, $1, $4)
+')
+
+define(calc_region, `
+define(FRONTIER_LENGTH, `eval(2 ** ($1 - 1))')
+// Increase the bit size of the last regions frontier by 1
+for i from 0 to decr($2)
+begin
+    this_column[i] := 0{1}.this_column[i];
+    this_row[i] := 0{1}.this_row[i];
+end
+
+// Expand the frontier
+for i from $2 to eval($2 * 2 - 1)
+begin 
+    vec_dup(prev_column, this_column, FRONTIER_LENGTH)
+    vec_dup(prev_row, this_row, FRONTIER_LENGTH)
+    
+    // set boundaries
+    column_l := prev_column[0];
+    this_column[0] := column_l + 1{$1};
+    column_last_cell := this_column[0];
+
+    row_u := prev_row[0];
+    this_row[0] := row_u + 1{$1};
+    row_last_cell := this_row[0];
+
+    for j from 1 to decr(FRONTIER_LENGTH)
+    begin
+	// compute column
+        column_d := column_l;
+	column_u := column_last_cell;
+	column_l := prev_column[j];
+
+	min3(column_min, column_d, column_u, column_l)
+
+	if a{j} == b{i} then
+	    this_column[j] := column_d;
+	else
+	    this_column[j] := column_min + 1{$1};
+	end
+	column_last_cell := this_column[j];
+
+//===breaks here
+	// compute row
+        row_d := row_u;
+	row_u := prev_row[j];
+	row_l := row_last_cell;
+
+	min3(row_min, row_d, row_u, row_l)
+
+	if a{i} == b{j} then
+	    this_row[j] := row_d;
+	else
+	    this_row[j] := row_min + 1{$1};
+	end
+	row_last_cell := this_row[j];	
+    end
+end
+undefine(`FRONTIER_LENGTH')
+')
+
+
+//
+// Edit distance
+//
+
+defvar a := input.1{SEQU_SIZE};
+defvar b := input.0{SEQU_SIZE};
+
+// compute 0
+for i from 0 to SEQU_SIZE
+begin
+    this_column[i] := 0{1};
+    this_row[i] := 0{1};
+end
+
+this_column[0] := 1{2};
+this_row[0] := 1{2};
+
+if a{0} == b{0} then
+    this_column[1] := 0{2};
+    this_row[1] := 0{2};
+else
+    this_column[1] := 1{2};
+    this_row[1] := 1{2};
+end
+
+// compute remaining columns
+calc_region(3, 2)
+//calc_region(4, 4)
+
+one_at_a_time := this_row[SEQU_SIZE];
+output.0 := one_at_a_time;

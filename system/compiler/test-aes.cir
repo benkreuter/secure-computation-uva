@@ -1,0 +1,349 @@
+define(mul, `
+//
+// $1 := $2 * $3 (mod 27)
+//
+mul_a := $2;
+mul_b := $3;
+
+mul_o := zero;
+
+if mul_b{0} == 1{1} then
+    mul_o := mul_a;
+end
+
+for mul_i from 1 to 7
+begin
+    mul_d := mul_a{7};// & onetwoeight;
+    mul_a := mul_a << 1;// + mul_a;
+
+    if mul_d == 1{1} then //onetwoeight then
+        mul_a := mul_a ^ twentyseven;
+    end
+
+    if mul_b{mul_i} == 1{1} then
+        mul_o := mul_o ^ mul_a;
+    end
+end
+
+$1 := mul_o')
+
+
+
+define(sbox, `
+//
+// $1 := SBOX($2)
+//
+x := $2;
+q := 0{4};
+
+q{3} := (x{7} & (x{5} ^ x{4} ^ x{1} ^ x{0})) ^
+        (x{6} & (x{5} ^ x{4} ^ x{2} ^ x{1})) ^
+        (x{5} & (x{4} ^ x{2} ^ x{1} ^ x{0})) ^
+        (x{4} & (x{2} ^ x{1})) ^
+        (x{3} & (x{2} ^ x{1})) ^
+        (x{2} & (x{1}));
+q{2} := (x{7} & (x{6} ^ x{5} ^ x{3} ^ x{2} ^ x{0})) ^
+        (x{6} & (x{5} ^ x{3} ^ x{2} ^ x{1} ^ x{0})) ^
+        (x{5} & (x{3} ^ x{2})) ^
+        (x{4} & (x{3} ^ x{2} ^ x{0})) ^
+        (x{3} & (x{2} ^ x{0})) ^
+        ((x{2} ^ x{1}) & x{0});
+q{1} := (x{7} & (x{5} ^ x{2} ^ x{0} ^ 1{1})) ^
+        (x{6} & (x{5} ^ x{3})) ^
+        (x{5} & (x{4} ^ x{3} ^ x{2} ^ x{0} ^ 1{1})) ^
+        (x{4} & (x{2} ^ 1{1})) ^
+        (x{3} & (x{2} ^ x{0})) ^
+        (x{2} & (x{1} ^ x{0} ^ 1{1})) ^
+        (x{1});
+q{0} := (x{7} & (x{6} ^ x{4} ^ x{0})) ^
+        (x{6} & (x{5} ^ x{4} ^ x{3} ^ x{1} ^ 1{1})) ^
+        (x{5} & (x{3} ^ x{0} ^ 1{1})) ^
+        (x{4} & (x{3} ^ x{1})) ^
+        (x{3} & (x{2} ^ x{1} ^ x{0} ^ 1{1})) ^
+        ((x{2} ^ x{1}) & x{0}) ^
+        (x{0} ^ x{2});
+
+//q := q[3].q[2].q[1].q[0];
+//q := q[0].q[1].q[2].q[3];
+
+y := 0{4};
+
+// y := 1/q
+y{3} := q{3} ^ (q{3}&q{2}&q{1}) ^ (q{3}&q{0}) ^ q{2};
+y{2} := (q{3}&q{2}&q{1}) ^ (q{3}&q{2}&q{0}) ^ (q{3}&q{0}) ^ 
+        q{2} ^ (q{2}&q{1});
+y{1} := q{3} ^ (q{3}&q{2}&q{1}) ^ (q{3}&q{1}&q{0}) ^ q{2} ^ 
+        (q{2}&q{0}) ^ q{1};
+y{0} := (q{3}&q{2}&q{1}) ^ (q{3}&q{2}&q{0}) ^ (q{3}&q{1}) ^ 
+        (q{3}&q{1}&q{0}) ^ (q{3}&q{0}) ^ q{2} ^ (q{2}&q{1}) ^ 
+        (q{2}&q{1}&q{0}) ^ q{1} ^ q{0};
+
+//y := y[3].y[2].y[1].y[0];
+//y := y[0].y[1].y[2].y[3];
+
+t := 0{8};
+
+t{7} := (y{3} & (x{7} ^ x{6} ^ x{4} ^ x{0})) ^
+        (y{2} & (x{5} ^ x{4} ^ x{3} ^ x{0})) ^
+        (y{1} & (x{5} ^ x{4} ^ x{3} ^ x{2} ^ x{1})) ^
+        (y{0} & (x{7} ^ x{2} ^ x{1}));
+t{6} := (y{3} & (x{7} ^ x{6} ^ x{4})) ^
+        (y{2} & (x{7} ^ x{5} ^ x{1})) ^
+        (y{1} & (x{6} ^ x{5} ^ x{4})) ^
+        (y{0} & (x{6} ^ x{5} ^ x{4} ^ x{3} ^ x{2}));	   
+t{5} := (y{3} & (x{7} ^ x{6} ^ x{5} ^ x{2})) ^
+        (y{2} & (x{7} ^ x{5} ^ x{0})) ^
+        (y{1} & (x{4} ^ x{3})) ^
+        (y{0} & (x{7} ^ x{6} ^ x{5}));	   
+t{4} := (y{3} & (x{6} ^ x{5} ^ x{2})) ^
+        (y{2} & (x{7} ^ x{6} ^ x{5} ^ x{3} ^ x{2})) ^
+        (y{1} & (x{5} ^ x{4} ^ x{3} ^ x{2} ^ x{1} ^ x{0})) ^
+        (y{0} & (x{4} ^ x{3} ^ x{2} ^ x{0}));
+t{3} := (y{3} & (x{7} ^ x{6} ^ x{5} ^ x{4} ^ x{3} ^ x{2} ^ x{1})) ^
+        (y{2} & (x{7} ^ x{6} ^ x{5} ^ x{3} ^ x{2} ^ x{0})) ^
+        (y{1} & (x{7} ^ x{3} ^ x{1} ^ x{0})) ^
+        (y{0} & (x{6} ^ x{4} ^ x{1} ^ x{0}));
+t{2} := (y{3} & (x{5} ^ x{2} ^ x{1} ^ x{0})) ^
+        (y{2} & (x{7} ^ x{6} ^ x{5} ^ x{4} ^ x{3} ^ x{2} ^ x{0})) ^
+        (y{1} & (x{7} ^ x{5} ^ x{4})) ^
+        (y{0} & (x{4} ^ x{2} ^ x{1} ^ x{0}));
+t{1} := (y{3} & (x{6} ^ x{4} ^ x{3} ^ x{1})) ^
+        (y{2} & (x{6} ^ x{5} ^ x{3} ^ x{1})) ^
+        (y{1} & (x{7})) ^
+        (y{0} & (x{6} ^ x{3} ^ x{2} ^ x{0}));
+t{0} := (y{3} & (x{7} ^ x{3} ^ x{2} ^ x{1})) ^
+        (y{2} & (x{7} ^ x{4} ^ x{0})) ^
+        (y{1} & (x{6} ^ x{4} ^ x{2} ^ x{0})) ^
+        (y{0} & (x{5} ^ x{3} ^ x{2} ^ x{0}));
+
+//t:=t[7].t[6].t[5].t[4].t[3].t[2].t[1].t[0];
+//t:=t[0].t[1].t[2].t[3].t[4].t[5].t[6].t[7];
+
+t := t ^ ninetynine;
+$1 := t')
+
+
+
+define(sub_bytes, `
+//
+// $1[i] := SBOX($2[i]); for i = 0 to 15
+//
+for sub_i from 0 to 14
+begin
+    sbox($1[sub_i], $2[sub_i]);
+end
+
+sbox($1[15], $2[15])')
+
+
+
+define(shift_rows, `
+//
+// $1 := SHIFT_ROWS($2);
+//
+
+
+$1[ 0] := $2[ 0]; // 1st row no change
+$1[ 4] := $2[ 4];
+$1[ 8] := $2[ 8];
+$1[12] := $2[12];
+
+$1[ 1] := $2[ 5]; // 2nd row shift 1
+$1[ 5] := $2[ 9];
+$1[ 9] := $2[13];
+$1[13] := $2[ 1];
+
+$1[ 2] := $2[10]; // 3rd row shift 2
+$1[ 6] := $2[14];
+$1[10] := $2[ 2];
+$1[14] := $2[ 6];
+
+$1[ 3] := $2[15]; // 4th row shift 3
+$1[ 7] := $2[ 3];
+$1[11] := $2[ 7];
+$1[15] := $2[11]')
+
+
+
+define(mix_columns, `
+
+
+
+for mix_i from 0 to 15
+begin
+    mul(mix_b[mix_i], two, $2[mix_i]);
+end
+
+$1[ 0] := mix_b[ 0] ^ $2[ 3] ^ $2[ 2] ^ mix_b[ 1] ^ $2[ 1];
+$1[ 1] := mix_b[ 1] ^ $2[ 0] ^ $2[ 3] ^ mix_b[ 2] ^ $2[ 2];
+$1[ 2] := mix_b[ 2] ^ $2[ 1] ^ $2[ 0] ^ mix_b[ 3] ^ $2[ 3];
+$1[ 3] := mix_b[ 3] ^ $2[ 2] ^ $2[ 1] ^ mix_b[ 0] ^ $2[ 0];
+
+$1[ 4] := mix_b[ 4] ^ $2[ 7] ^ $2[ 6] ^ mix_b[ 5] ^ $2[ 5];
+$1[ 5] := mix_b[ 5] ^ $2[ 4] ^ $2[ 7] ^ mix_b[ 6] ^ $2[ 6];
+$1[ 6] := mix_b[ 6] ^ $2[ 5] ^ $2[ 4] ^ mix_b[ 7] ^ $2[ 7];
+$1[ 7] := mix_b[ 7] ^ $2[ 6] ^ $2[ 5] ^ mix_b[ 4] ^ $2[ 4];
+
+$1[ 8] := mix_b[ 8] ^ $2[11] ^ $2[10] ^ mix_b[ 9] ^ $2[ 9];
+$1[ 9] := mix_b[ 9] ^ $2[ 8] ^ $2[11] ^ mix_b[10] ^ $2[10];
+$1[10] := mix_b[10] ^ $2[ 9] ^ $2[ 8] ^ mix_b[11] ^ $2[11];
+$1[11] := mix_b[11] ^ $2[10] ^ $2[ 9] ^ mix_b[ 8] ^ $2[ 8];
+
+$1[12] := mix_b[12] ^ $2[15] ^ $2[14] ^ mix_b[13] ^ $2[13];
+$1[13] := mix_b[13] ^ $2[12] ^ $2[15] ^ mix_b[14] ^ $2[14];
+$1[14] := mix_b[14] ^ $2[13] ^ $2[12] ^ mix_b[15] ^ $2[15];
+$1[15] := mix_b[15] ^ $2[14] ^ $2[13] ^ mix_b[12] ^ $2[12]')
+
+
+
+define(round_keys, `
+//    function block roundKey(byte rcon, block prevKey)
+//    {
+//        roundKey[ 0] = prevKey[ 0] ^ Sbox(prevKey[13]) ^ rcon;
+//        roundKey[ 1] = prevKey[ 1] ^ Sbox(prevKey[14]);
+//        roundKey[ 2] = prevKey[ 2] ^ Sbox(prevKey[15]);
+//        roundKey[ 3] = prevKey[ 3] ^ Sbox(prevKey[12]);
+sbox($1[0], $3[13]); $1[0] := $3[0] ^ $1[0] ^ $2;
+sbox($1[1], $3[14]); $1[1] := $3[1] ^ $1[1];
+sbox($1[2], $3[15]); $1[2] := $3[2] ^ $1[2];
+sbox($1[3], $3[12]); $1[3] := $3[3] ^ $1[3];
+
+//        roundKey[ 4] = prevKey[ 4] ^ roundKey[ 0];
+//        roundKey[ 5] = prevKey[ 5] ^ roundKey[ 1];
+//        roundKey[ 6] = prevKey[ 6] ^ roundKey[ 2];
+//        roundKey[ 7] = prevKey[ 7] ^ roundKey[ 3];
+//        roundKey[ 8] = prevKey[ 8] ^ roundKey[ 4];
+//        roundKey[ 9] = prevKey[ 9] ^ roundKey[ 5];
+//        roundKey[10] = prevKey[10] ^ roundKey[ 6];
+//        roundKey[11] = prevKey[11] ^ roundKey[ 7];
+//        roundKey[12] = prevKey[12] ^ roundKey[ 8];
+//        roundKey[13] = prevKey[13] ^ roundKey[ 9];
+//        roundKey[14] = prevKey[14] ^ roundKey[10];
+//        roundKey[15] = prevKey[15] ^ roundKey[11];
+$1[ 4] := $3[ 4] ^ $1[ 0];
+$1[ 5] := $3[ 5] ^ $1[ 1];
+$1[ 6] := $3[ 6] ^ $1[ 2];
+$1[ 7] := $3[ 7] ^ $1[ 3];
+$1[ 8] := $3[ 8] ^ $1[ 4];
+$1[ 9] := $3[ 9] ^ $1[ 5];
+$1[10] := $3[10] ^ $1[ 6];
+$1[11] := $3[11] ^ $1[ 7];
+$1[12] := $3[12] ^ $1[ 8];
+$1[13] := $3[13] ^ $1[ 9];
+$1[14] := $3[14] ^ $1[10];
+$1[15] := $3[15] ^ $1[11]')
+
+
+
+define(bits_to_array, `
+//
+// $1[0-15] := $2;
+//
+$1[ 0] := $2{  0,  7};
+$1[ 1] := $2{  8, 15};
+$1[ 2] := $2{ 16, 23};
+$1[ 3] := $2{ 24, 31};
+$1[ 4] := $2{ 32, 39};
+$1[ 5] := $2{ 40, 47};
+$1[ 6] := $2{ 48, 55};
+$1[ 7] := $2{ 56, 63};
+$1[ 8] := $2{ 64, 71};
+$1[ 9] := $2{ 72, 79};
+$1[10] := $2{ 80, 87};
+$1[11] := $2{ 88, 95};
+$1[12] := $2{ 96,103};
+$1[13] := $2{104,111};
+$1[14] := $2{112,119};
+$1[15] := $2{120,127}')
+
+
+
+define(vec_xor,`
+//
+// $1[i] := $2[i] ^ $3[i] for i = 0 to 15
+//
+for vec_i from 0 to 14
+begin
+    $1[vec_i] := $2[vec_i] ^ $3[vec_i];
+end
+
+$1[15] := $2[15] ^ $3[15]')
+
+
+
+define(vec_dup,`
+
+for vec_i from 0 to 14
+begin
+    $1[vec_i] := $2[vec_i];
+end
+
+$1[15] := $2[15]')
+
+
+//
+// Aes circuit
+//
+
+defvar key := input.0{128};
+defvar txt := input.1{128};
+
+//        state = input.alice;
+//        key = input.bob;
+//        rcon = 141;
+
+bits_to_array(key_vec, key);
+bits_to_array(txt_vec, txt);
+rcon := 141{8};
+
+//        for (i = 0 to 9)
+//        {
+//            state = state ^ key;
+//            state = subBytes(state);
+//            state = shiftRows(state);
+//            if (i < 9)
+//                state = mixColumns(state);
+//            rcon = Mul(2, rcon);
+//            key = roundKey(rcon, key);
+//        }
+
+two := 2{8};
+onetwoeight := 128{8};
+ninetynine := 99{8};
+twentyseven := 27{8};
+zero := 0{8};
+two := 2{8};
+
+for aes_i from 0 to 8
+begin
+    vec_xor(txt_vec_xor, txt_vec, key_vec);
+    sub_bytes(txt_vec_sub, txt_vec_xor);
+    shift_rows(txt_vec_shft, txt_vec_sub);
+    mix_columns(txt_vec, txt_vec_shft);
+
+    // key scheduling
+    mul(rcon, two, rcon);
+    vec_dup(old_key_vec, key_vec);
+    round_keys(key_vec, rcon, old_key_vec);
+end
+
+vec_xor(txt_vec_xor, txt_vec, key_vec);
+sub_bytes(txt_vec_sub, txt_vec_xor);
+shift_rows(txt_vec_shft, txt_vec_sub);
+mul(rcon, two, rcon);
+vec_dup(old_key_vec, key_vec);
+round_keys(key_vec, rcon, old_key_vec);
+
+vec_xor(out_vec, txt_vec_shft, key_vec);
+
+//for i from 0 to 15
+//begin
+//    one_at_a_time := out_vec[i];
+//    output.0 := one_at_a_time;
+//end
+
+for i from 0 to 15
+begin
+    one_at_a_time := out_vec[i];
+    output.1 := one_at_a_time;
+end

@@ -1,0 +1,12 @@
+defvar x := input.0{4};
+defvar y := input.1{4};
+z := x & x ^ y&y;
+w := 0;
+for i from 0 to 1 begin
+if i == 1 then
+x := (z ^ x & x) + (x & y ^ x);
+w := i;
+end
+end
+output.0 := z;
+output.1 := x;

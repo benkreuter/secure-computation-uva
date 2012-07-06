@@ -1,0 +1,21 @@
+defvar x:=input.0{8};
+defvar y:=input.1{8};
+
+defun test(x,y) {
+z:=x+y;
+
+if z == 10{8} then
+   z := x;
+   if z == 0{8} then
+      z := 4{8};
+   end 
+end
+
+z := z+1{8};
+return z;
+}
+
+z:=test(x,y);
+
+output.0:=z;
+output.1:=z;

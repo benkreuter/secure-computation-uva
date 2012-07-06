@@ -1,0 +1,13 @@
+
+defvar x := input.0{16};
+
+s := 0{16};
+y := 1{16};
+
+for i from 1 to 100
+begin
+    s := s + y;
+    x := x + s;
+end
+
+output.0 := x;

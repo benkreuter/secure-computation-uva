@@ -1,0 +1,11 @@
+defvar x:=input.0{4};
+defvar y:=input.1{4};
+
+z:=0{1};
+
+if x > y then
+   z := 1;
+end
+
+output.0:=z;
+output.1:=z;
