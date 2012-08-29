@@ -15,13 +15,15 @@ Bytes Bytes::hash(size_t bits) const
 {
 	assert((0 < bits) && (bits <= 256));
 
-	byte buf[SHA256_DIGEST_LENGTH];
+	static Bytes hash;
+
+	hash.resize(SHA256_DIGEST_LENGTH);
 	SHA256_CTX sha256;
 	SHA256_Init(&sha256);
 	SHA256_Update(&sha256, &((*this)[0]), this->size());
-	SHA256_Final(buf, &sha256);
+	SHA256_Final(&hash[0], &sha256);
 
-	Bytes hash(buf, buf + (bits+7)/8);
+	hash.resize((bits+7)/8);
 	hash.back() &= MASK[bits % 8]; // clear the extra bits
 
 	return hash;
@@ -39,12 +41,12 @@ static const char HEX_TABLE[16] =
 std::string Bytes::to_hex() const
 {
 	std::string out;
-	out.reserve(this->size()*2);
+	out.reserve(this->size()<<1);
 
 	for (const_iterator it = this->begin(); it != this->end(); it++)
 	{
-		out.push_back(HEX_TABLE[*it/16]);
-		out.push_back(HEX_TABLE[*it%16]);
+		out.push_back(HEX_TABLE[(*it) >>0x04]);
+		out.push_back(HEX_TABLE[(*it) & 0x0F]);
 	}
 	return out;
 }

@@ -69,7 +69,7 @@ protected:
 
 	// subroutines for profiling
 	void step_init();
-	void step_report(uint64_t comm_sz, std::string step_name);
+	void step_report(std::string step_name);
 	void final_report();
 
 protected:
@@ -82,10 +82,11 @@ protected:
 	double              m_timer_com; // inter-cluster communication
 	double              m_timer_mpi; // intra-cluster communication
 
-	vector<double>      m_timer_gen_vec;
-	vector<double>      m_timer_evl_vec;
+	uint64_t            m_comm_sz;
+
+	vector<double>      m_timer_cmp_vec;
 	vector<double>      m_timer_mpi_vec;
-	vector<double>      m_timer_com_vec;
+	vector<double>      m_timer_cmm_vec;
 
 	vector<std::string> m_step_name_vec;
 	vector<uint64_t>    m_comm_sz_vec;

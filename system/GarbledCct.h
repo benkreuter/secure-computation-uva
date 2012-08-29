@@ -16,18 +16,18 @@ public:
 	void gen_init(const std::vector<Bytes> &keys, const Bytes &gen_inp_mask, const Bytes &seed);
 	void gen_next_gate(const Gate &g);
 
-	void evl_init(const std::vector<Bytes> &keys, const Bytes &masked_gen_inp, const Bytes &evl_inp);
-	void evl_next_gate(const Gate &g);
-
 	void com_init(const std::vector<Bytes> &keys, const Bytes &gen_inp_mask, const Bytes &seed);
 	void com_next_gate(const Gate &g);
+
+	void evl_init(const std::vector<Bytes> &keys, const Bytes &masked_gen_inp, const Bytes &evl_inp);
+	void evl_next_gate(const Gate &g);
 
 private:
 	void update_hash(const Bytes &data);
 
 	Bytes               m_hash;
 
-	__m128i             m_128i_R;
+	__m128i             m_R;
 
 	const std::vector<Bytes>  *m_ot_keys;
 	std::vector<Bytes>  m_C;
@@ -42,7 +42,7 @@ private:
 	uint32_t            m_evl_out_ix;
 
 	__m128i *           m_w;
-	__m128i             m_out_mask;
+	__m128i             m_clear_mask;
 
 public:
 	size_t            	m_max_map_size;
@@ -64,7 +64,6 @@ public:
 	const Bytes hash() const
 	{
 #ifdef RAND_SEED
-//		if (m_hash.size()>Env::key_size_in_bytes()) m_hash.hash(Env::k());
 		return m_hash.hash(Env::k());
 #else
 		return m_hash;
@@ -80,8 +79,9 @@ public:
 
 	const Bytes send()
 	{
-		Bytes o_data;
+		static Bytes o_data;
 		o_data.swap(m_o_bufr);
+		m_o_bufr.clear();
 		return o_data;
 	}
 };

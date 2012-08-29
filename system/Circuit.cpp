@@ -5,6 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <unistd.h>
 
 #include "Bytes.h"
 #include "Circuit.h"
@@ -46,7 +47,7 @@ const Gate & Circuit::next_gate()
 	string line;
 	std::getline(m_circuit_fs, line);
 
-	m_current_gate.m_input.clear();
+	m_current_gate.m_input_idx.clear();
 	m_current_gate.m_table.clear();
 
 	if (line.find("output.bob") != string::npos)
@@ -94,7 +95,7 @@ const Gate & Circuit::next_gate()
 			const char *str = it->c_str();
 			char *endptr = const_cast<char*>(str + it->size());
 			long long idx = strtoll(str, &endptr, 10);
-			m_current_gate.m_input.push_back(idx);
+			m_current_gate.m_input_idx.push_back(idx);
 		}
 	}
 
@@ -112,14 +113,14 @@ const Gate & Circuit::next_gate_binary_old()
 
 	if (m_current_gate.m_tag == GEN_INP || m_current_gate.m_tag == EVL_INP)
 	{
-		m_current_gate.m_input.clear();
+		m_current_gate.m_input_idx.clear();
 		m_current_gate.m_table.clear();
 	}
 	else
 	{
 		uint8_t arity = ((hdr>>4)&0x01) + 1;
 
-		m_current_gate.m_input.resize(arity);
+		m_current_gate.m_input_idx.resize(arity);
 		m_current_gate.m_table.resize(1<<arity);
 
 		for (size_t ix = 0; ix < m_current_gate.m_table.size(); ix++)
@@ -127,32 +128,32 @@ const Gate & Circuit::next_gate_binary_old()
 
 		if (m_gate_idx <= UINT16_MAX)
 		{
-			for (size_t ix = 0; ix < m_current_gate.m_input.size(); ix++)
+			for (size_t ix = 0; ix < m_current_gate.m_input_idx.size(); ix++)
 			{
-				m_current_gate.m_input[ix] = *reinterpret_cast<uint16_t *>(m_ptr);
+				m_current_gate.m_input_idx[ix] = *reinterpret_cast<uint16_t *>(m_ptr);
 				m_ptr += sizeof(uint16_t);
 			}
 		}
 		else if (m_gate_idx <= UINT32_MAX)
 		{
-			for (size_t ix = 0; ix < m_current_gate.m_input.size(); ix++)
+			for (size_t ix = 0; ix < m_current_gate.m_input_idx.size(); ix++)
 			{
-				m_current_gate.m_input[ix] = *reinterpret_cast<uint32_t *>(m_ptr);
+				m_current_gate.m_input_idx[ix] = *reinterpret_cast<uint32_t *>(m_ptr);
 				m_ptr += sizeof(uint32_t);
 			}
 		}
 		else
 		{
-			for (size_t ix = 0; ix < m_current_gate.m_input.size(); ix++)
+			for (size_t ix = 0; ix < m_current_gate.m_input_idx.size(); ix++)
 			{
-				m_current_gate.m_input[ix] = *reinterpret_cast<uint64_t *>(m_ptr);
+				m_current_gate.m_input_idx[ix] = *reinterpret_cast<uint64_t *>(m_ptr);
 				m_ptr += sizeof(uint64_t);
 			}
 		}
 	}
 
-	m_current_gate.m_ref_cnt = 0;
-	memcpy(&m_current_gate.m_ref_cnt, m_ptr, m_cnt_size);
+	m_current_gate.m_idx = 0;
+	memcpy(&m_current_gate.m_idx, m_ptr, m_cnt_size);
 	m_ptr += m_cnt_size;
 
 	m_gate_idx++;
@@ -171,28 +172,28 @@ const Gate & Circuit::next_gate_binary()
 
 	if (m_current_gate.m_tag == GEN_INP || m_current_gate.m_tag == EVL_INP)
 	{
-		m_current_gate.m_input.clear();
+		m_current_gate.m_input_idx.clear();
 		m_current_gate.m_table.clear();
 	}
 	else
 	{
 		uint8_t arity = ((hdr>>4)&0x01) + 1;
 
-		m_current_gate.m_input.resize(arity);
+		m_current_gate.m_input_idx.resize(arity);
 		m_current_gate.m_table.resize(1<<arity);
 
 		for (size_t ix = 0; ix < m_current_gate.m_table.size(); ix++)
 			m_current_gate.m_table[ix] = (hdr>>ix)&0x01;
 
-		for (size_t ix = 0; ix < m_current_gate.m_input.size(); ix++)
+		for (size_t ix = 0; ix < m_current_gate.m_input_idx.size(); ix++)
 		{
-			memcpy(&(m_current_gate.m_input[ix]), m_ptr, m_cnt_size);
+			memcpy(&(m_current_gate.m_input_idx[ix]), m_ptr, m_cnt_size);
 			m_ptr += m_cnt_size;
 		}
 	}
 
-	m_current_gate.m_ref_cnt = 0;
-	memcpy(&m_current_gate.m_ref_cnt, m_ptr, m_cnt_size);
+	m_current_gate.m_idx = 0;
+	memcpy(&m_current_gate.m_idx, m_ptr, m_cnt_size);
 	m_ptr += m_cnt_size;
 
 	m_gate_idx++;
@@ -311,10 +312,10 @@ std::ostream &operator<<(std::ostream &os, const Gate &g)
 		break;
 	}
 
-	if (g.m_input.size() == 0)
+	if (g.m_input_idx.size() == 0)
 		return os;
 
-	os << "arity: " << g.m_input.size();
+	os << "arity: " << g.m_input_idx.size();
 
 	os << " table [";
 	for (vector<bool>::const_iterator it = g.m_table.begin(); it != g.m_table.end(); it++)
@@ -322,11 +323,11 @@ std::ostream &operator<<(std::ostream &os, const Gate &g)
 	os << " ]";
 
 	os << " input [";
-	for (vector<uint64_t>::const_iterator it = g.m_input.begin(); it != g.m_input.end(); it++)
+	for (vector<uint64_t>::const_iterator it = g.m_input_idx.begin(); it != g.m_input_idx.end(); it++)
 		os << " " << *it;
 	os << " ]";
 
-	os << ", cnt: " << g.m_ref_cnt;
+	os << ", cnt: " << g.m_idx;
 
 	return os;
 }
@@ -360,9 +361,9 @@ void Circuit::evaluate(const Bytes &gen_inp, const Bytes &evl_inp, Bytes &gen_ou
 		{
 			size_t inp_ix = 0;
 
-			for (size_t ix = 0; ix < g.m_input.size(); ix++)
+			for (size_t ix = 0; ix < g.m_input_idx.size(); ix++)
 			{
-				inp_ix |= ((wire.get_ith_bit(g.m_input[ix]) & 0x01) << ix);
+				inp_ix |= ((wire.get_ith_bit(g.m_input_idx[ix]) & 0x01) << ix);
 			}
 			wire.set_ith_bit(wire_ix, g.m_table[inp_ix]);
 
@@ -413,9 +414,9 @@ void Circuit::evaluate_binary_old(const Bytes &gen_inp, const Bytes &evl_inp, By
 		{
 			size_t tbl_ix = 0;
 
-			for (size_t ix = 0; ix < g.m_input.size(); ix++)
+			for (size_t ix = 0; ix < g.m_input_idx.size(); ix++)
 			{
-				tbl_ix |= ((wire.get_ith_bit(g.m_input[ix]) & 0x01) << ix);
+				tbl_ix |= ((wire.get_ith_bit(g.m_input_idx[ix]) & 0x01) << ix);
 			}
 			wire.set_ith_bit(wire_ix, g.m_table[tbl_ix]);
 
@@ -452,32 +453,55 @@ void Circuit::evaluate_binary(const Bytes &gen_inp, const Bytes &evl_inp, Bytes 
 
 		if (g.m_tag == GEN_INP)
 		{
-			wire.set_ith_bit(g.m_ref_cnt, gen_inp.get_ith_bit(gen_inp_ix++));
+			wire.set_ith_bit(g.m_idx, gen_inp.get_ith_bit(gen_inp_ix++));
 		}
 		else if (g.m_tag == EVL_INP)
 		{
-			wire.set_ith_bit(g.m_ref_cnt, evl_inp.get_ith_bit(evl_inp_ix++));
+			wire.set_ith_bit(g.m_idx, evl_inp.get_ith_bit(evl_inp_ix++));
 		}
 		else
 		{
 			size_t tbl_ix = 0;
 
-			for (size_t ix = 0; ix < g.m_input.size(); ix++)
+			for (size_t ix = 0; ix < g.m_input_idx.size(); ix++)
 			{
-				tbl_ix |= wire.get_ith_bit(g.m_input[ix]) << ix;
+				tbl_ix |= wire.get_ith_bit(g.m_input_idx[ix]) << ix;
 			}
-			wire.set_ith_bit(g.m_ref_cnt, g.m_table[tbl_ix]);
+			wire.set_ith_bit(g.m_idx, g.m_table[tbl_ix]);
 
 			if (g.m_tag == GEN_OUT)
 			{
-				gen_out.set_ith_bit(gen_out_ix++, wire.get_ith_bit(g.m_ref_cnt));
+				gen_out.set_ith_bit(gen_out_ix++, wire.get_ith_bit(g.m_idx));
 			}
 			else if (g.m_tag == EVL_OUT)
 			{
-				evl_out.set_ith_bit(evl_out_ix++, wire.get_ith_bit(g.m_ref_cnt));
+				evl_out.set_ith_bit(evl_out_ix++, wire.get_ith_bit(g.m_idx));
 			}
 		}
 
 		wire_ix++;
 	}
+}
+
+Circuit::~Circuit()
+{
+    m_circuit_fs.close();
+
+	struct stat statbuf;
+
+	if (fstat(m_circuit_fd, &statbuf) < 0)
+	{
+		perror("fstat in load_binary failed");
+	}
+
+    if (m_ptr_begin != 0 && munmap(m_ptr_begin, statbuf.st_size) == -1)
+    {
+		perror("munmap in ~Circuit() failed");
+    }
+
+	if (close(m_circuit_fd) != 0)
+	{
+		perror("can't close file");
+	}
+
 }

@@ -19,12 +19,9 @@ using std::vector;
 struct Gate
 {
 	uint8_t          m_tag;
-	uint64_t         m_ref_cnt;
-	vector<uint64_t> m_input;   // input gates
-	vector<bool>     m_table;   // truth table
-
-//	vector<uint64_t> m_input_idx;
-//	uint64_t         m_idx;
+	uint64_t         m_idx;
+	vector<uint64_t> m_input_idx; // input gates
+	vector<bool>     m_table;     // truth table
 };
 
 
@@ -32,7 +29,7 @@ inline bool is_xor(const Gate &g)
 {
 	uint8_t tbl = 0;
 	for (size_t ix = 0; ix < g.m_table.size(); ix++) { tbl |= g.m_table[ix]<<ix; }
-	return (g.m_input.size()==1 && tbl==0x02) || (g.m_input.size()==2 && tbl==0x06);
+	return (g.m_input_idx.size()==1 && tbl==0x02) || (g.m_input_idx.size()==2 && tbl==0x06);
 }
 
 
@@ -69,7 +66,7 @@ public:
 		m_gate_cnt(0), m_gen_inp_cnt(0), m_gen_out_cnt(0), m_evl_inp_cnt(0), m_evl_out_cnt(0),
 		m_cnt_size(0), m_cnt(0), m_circuit_fd(0) {}
 
-	~Circuit() { m_circuit_fs.close(); }
+	~Circuit();
 
 	bool load(const char *circuit_file);
 	bool load_binary(const char *circuit_file);

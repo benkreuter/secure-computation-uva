@@ -40,9 +40,9 @@ private:
 //	void   send_data(int dst, const Bytes &data);
 //
 //	// subroutines for OT-extension implementation
-	uint64_t ot_init();
+	void ot_init();
 //	uint64_t ot(uint32_t l);
-	uint64_t ot_random(); // sender has m pairs of l-bit strings, and receiver has m bits
+	void ot_random(); // sender has m pairs of l-bit strings, and receiver has m bits
 //	uint64_t ot_ext_random(const size_t sigma, const size_t k, const size_t l);
 //	void ot_free();
 //
