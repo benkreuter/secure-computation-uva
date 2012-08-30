@@ -207,12 +207,6 @@ void YaoBase::init_private(EnvParams &params)
 	GEN_END
 
 	private_file.close();
-
-	// Init variables
-//	m_coms.resize(Env::node_load());
-//	m_rnds.resize(Env::node_load());
-//	m_ccts.resize(Env::node_load());
-//	m_gen_inp_masks.resize(Env::node_load());
 }
 
 
@@ -275,33 +269,30 @@ inline std::string print_longlong(uint64_t l)
 void YaoBase::step_init()
 {
     m_timer_gen = m_timer_evl = m_timer_mpi = m_timer_com = 0;
+    m_comm_sz = 0;
 }
 
 
-void YaoBase::step_report(uint64_t comm_sz, std::string step_name)
+void YaoBase::step_report(std::string step_name)
 {
-	uint64_t all_comm_sz = 0;
-	double max_timer_mpi = 0;
-
-	double start = MPI_Wtime();
-		MPI_Reduce(&comm_sz, &all_comm_sz, 1, MPI_LONG_LONG_INT, MPI_SUM, 0, m_mpi_comm);
-	m_timer_mpi += MPI_Wtime() - start;
+	uint64_t all_comm_sz;
+	MPI_Reduce(&m_comm_sz, &all_comm_sz, 1, MPI_LONG_LONG_INT, MPI_SUM, 0, m_mpi_comm);
 
 	if (!Env::is_root())
 		return;
 
-	m_timer_mpi_vec.push_back(max_timer_mpi);
-	m_timer_com_vec.push_back(m_timer_com);
+	m_timer_mpi_vec.push_back(m_timer_mpi);
+	m_timer_cmm_vec.push_back(m_timer_com);
 	m_step_name_vec.push_back(step_name);
 	m_comm_sz_vec.push_back(all_comm_sz);
 
 	EVL_BEGIN
-		m_timer_evl_vec.push_back(m_timer_evl);
+		m_timer_cmp_vec.push_back(m_timer_evl);
 		LOG4CXX_INFO(logger, "EVL \033[33mfinish " << step_name << "\033[37m");
 	EVL_END
 
 	GEN_BEGIN
-		m_timer_gen_vec.push_back(m_timer_gen);
+		m_timer_cmp_vec.push_back(m_timer_gen);
 		LOG4CXX_INFO(logger, "GEN \033[33mfinish " << step_name << "\033[37m");
 	GEN_END
 }
@@ -317,20 +308,15 @@ void YaoBase::final_report()
 	LOG4CXX_INFO(logger, "========================================================");
 
 	std::string name;
-	std::vector<double> comp_vec;
 
 	EVL_BEGIN
 		name = "EVL";
-		comp_vec = m_timer_evl_vec;
-
 		LOG4CXX_INFO(logger, "EVL  input: \033[31m" << m_evl_inp.to_hex() << "\033[37m");
 		LOG4CXX_INFO(logger, "EVL output: \033[31m" << m_evl_out.to_hex() << "\033[37m");
 	EVL_END
 
 	GEN_BEGIN
 		name = "GEN";
-		comp_vec = m_timer_gen_vec;
-
 		LOG4CXX_INFO(logger, "GEN  input: \033[31m" << m_gen_inp.to_hex() << "\033[37m");
 		LOG4CXX_INFO(logger, "GEN output: \033[31m" << m_gen_out.to_hex() << "\033[37m");
 	GEN_END
@@ -341,10 +327,10 @@ void YaoBase::final_report()
 		(
 			logger,
 			name << " in " << m_step_name_vec[i] << "> " << std::fixed <<
-			"  comp:" << std::setprecision(3) << std::setw(10) << comp_vec[i] <<
-			", comm:" << std::setprecision(3) << std::setw(10) << m_timer_com_vec[i] <<
-			",  mpi:" << std::setprecision(3) << std::setw(10) << m_timer_mpi_vec[i] <<
-			", size:" << std::setprecision(3) << std::setw(18) << print_longlong(m_comm_sz_vec[i])
+			"  cmp:"  << std::setw(16) << std::setprecision(8) << m_timer_cmp_vec[i] <<
+			", cmm:"  << std::setw(16) << std::setprecision(8) << m_timer_cmm_vec[i] <<
+			", mpi:"  << std::setw(16) << std::setprecision(8) << m_timer_mpi_vec[i] <<
+			", size:" << std::setw(20) << std::setprecision(8) << print_longlong(m_comm_sz_vec[i])
 		);
 	}
 }

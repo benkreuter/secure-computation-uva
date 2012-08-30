@@ -45,20 +45,20 @@ public:
 		return *this;
 	}
 
-	byte get_ith_bit(size_t ix) const
+	byte get_ith_bit(uint64_t ix) const
 	{
-		assert(ix < size()*8);
-		return ((*this)[ix/8] >> (ix%8)) & 0x01;
+		assert(ix < size()*8LL);
+		return ((*this)[ix>>3] >> (ix%0x08)) & 0x01;
 	}
 
-	void set_ith_bit(size_t ix, byte bit)
+	void set_ith_bit(uint64_t ix, byte bit)
 	{
-		assert(ix < size()*8);
+		assert(ix < size()*8LL);
 		static const byte INVERSE_MASK[8] =
 			{ 0xFE, 0xFD, 0xFB, 0xF7, 0xEF, 0xDF, 0xBF, 0x7F };
 
-		(*this)[ix/8] &= INVERSE_MASK[ix%8];
-		(*this)[ix/8] |= (bit&0x01) << (ix%8);
+		(*this)[ix>>3] &= INVERSE_MASK[ix%8];
+		(*this)[ix>>3] |= (bit&0x01) << (ix%8);
 	}
 
 	std::string to_hex() const;

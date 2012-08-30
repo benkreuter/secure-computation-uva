@@ -26,20 +26,17 @@ void Yao::start()
     final_report();
 }
 
-
 void Yao::oblivious_transfer()
 {
-	// TODO: implement efficient OT ext
 	step_init();
 
-	double start;
-	uint64_t comm_sz = 0;
+	double start; // time marker
 
 	Bytes send, recv, bufr(Env::elm_size_in_bytes()*4);
 	std::vector<Bytes> bufr_chunks, recv_chunks;
 
-	G  gr, hr, X[2], Y[2];
-    Z r, y, a, s[2], t[2];
+	G X[2], Y[2], gr, hr;
+    Z s[2], t[2],  y,  a,  r;
 
 	// step 1: generating the CRS: g[0], h[0], g[1], h[1]
 	if (Env::is_root())
@@ -73,7 +70,7 @@ void Yao::oblivious_transfer()
 			m_timer_com += MPI_Wtime() - start;
 		GEN_END
 
-	    comm_sz += bufr.size();
+	    m_comm_sz += bufr.size();
 	}
 
 	// send g[0], g[1], h[0], h[1] to slave processes
@@ -105,61 +102,59 @@ void Yao::oblivious_transfer()
 	m_timer_gen += MPI_Wtime() - start;
 
 	// Step 2: ZKPoK of (g[0], g[1], h[0], h[1])
-
-	MPI_Barrier(m_mpi_comm);
+	// TODO
 
 	// Step 3: gr=g[b]^r, hr=h[b]^r, where b is the evaluator's bit
-
-	EVL_BEGIN
-		start = MPI_Wtime();
-			send.resize(Env::exp_size_in_bytes()*Env::circuit().evl_inp_cnt());
-			bufr.resize(Env::elm_size_in_bytes()*Env::circuit().evl_inp_cnt()*2);
-
-			if (Env::is_root())
-			{
-				send.clear(); bufr.clear();
-				for (size_t bix = 0; bix < Env::circuit().evl_inp_cnt(); bix++)
-				{
-					r.random();
-					send += r.to_bytes();  // to be shared with slaves
-
-					byte bit_value = m_evl_inp.get_ith_bit(bix);
-					bufr += (m_ot_g[bit_value]^r).to_bytes(); // gr
-					bufr += (m_ot_h[bit_value]^r).to_bytes(); // hr
-				}
-			}
-		m_timer_evl += MPI_Wtime() - start;
-
-		start = MPI_Wtime();
-			MPI_Bcast(&send[0], send.size(), MPI_BYTE, 0, m_mpi_comm); // now every evaluator has r's
-		m_timer_mpi += MPI_Wtime() - start;
-	EVL_END
-
 	if (Env::is_root())
 	{
 		EVL_BEGIN
-			// send (gr, hr)'s
 			start = MPI_Wtime();
-				EVL_SEND(bufr);
+				bufr.clear(); bufr.reserve(Env::exp_size_in_bytes()*Env::circuit().evl_inp_cnt());
+				send.clear(); send.reserve(Env::elm_size_in_bytes()*Env::circuit().evl_inp_cnt()*2);
+				for (size_t bix = 0; bix < Env::circuit().evl_inp_cnt(); bix++)
+				{
+					r.random();
+					bufr += r.to_bytes();  // to be shared with slave evaluators
+
+					byte bit_value = m_evl_inp.get_ith_bit(bix);
+					send += (m_ot_g[bit_value]^r).to_bytes(); // gr
+					send += (m_ot_h[bit_value]^r).to_bytes(); // hr
+				}
+			m_timer_evl += MPI_Wtime() - start;
+
+			start = MPI_Wtime();
+				EVL_SEND(send); // send (gr, hr)'s
 			m_timer_com += MPI_Wtime() - start;
+
+			m_comm_sz += send.size();
 		EVL_END
 
 		GEN_BEGIN
-			// receive (gr, hr)'s
 			start = MPI_Wtime();
-				bufr = GEN_RECV();
+				bufr = GEN_RECV(); // receive (gr, hr)'s
 			m_timer_com += MPI_Wtime() - start;
-		GEN_END
 
-		comm_sz += bufr.size();
+			m_comm_sz += bufr.size();
+		GEN_END
 	}
 
-	// Step 4: the generator computes X[0], Y[0], X[1], Y[1]
-
-	GEN_BEGIN
-		// forward (gr, hr)'s to slaves
+	EVL_BEGIN // forward rs to slave evaluators
 		start = MPI_Wtime();
-			bufr.resize(Env::circuit().evl_inp_cnt()*2*Env::elm_size_in_bytes());
+			bufr.resize(Env::exp_size_in_bytes()*Env::circuit().evl_inp_cnt());
+		m_timer_evl += MPI_Wtime() - start;
+
+		start = MPI_Wtime();
+			MPI_Bcast(&bufr[0], bufr.size(), MPI_BYTE, 0, m_mpi_comm); // now every evaluator has r's
+		m_timer_mpi += MPI_Wtime() - start;
+
+		start = MPI_Wtime();
+			bufr_chunks = bufr.split(Env::exp_size_in_bytes());
+		m_timer_evl += MPI_Wtime() - start;
+	EVL_END
+
+	GEN_BEGIN // forward (gr, hr)s to slave generators
+		start = MPI_Wtime();
+			bufr.resize(Env::elm_size_in_bytes()*Env::circuit().evl_inp_cnt()*2);
 		m_timer_gen += MPI_Wtime() - start;
 
 		start = MPI_Wtime();
@@ -169,7 +164,10 @@ void Yao::oblivious_transfer()
 		start = MPI_Wtime();
 			bufr_chunks = bufr.split(Env::elm_size_in_bytes());
 		m_timer_gen += MPI_Wtime() - start;
+	GEN_END
 
+	// Step 4: the generator computes X[0], Y[0], X[1], Y[1]
+	GEN_BEGIN
 		for (size_t bix = 0; bix < Env::circuit().evl_inp_cnt(); bix++)
 		{
 			start = MPI_Wtime();
@@ -212,7 +210,7 @@ void Yao::oblivious_transfer()
 					GEN_SEND(send);
 				m_timer_com += MPI_Wtime() - start;
 
-				comm_sz += send.size();
+				m_comm_sz += send.size();
 			}
 		}
 
@@ -224,10 +222,6 @@ void Yao::oblivious_transfer()
 
 	// Step 5: the evaluator computes K = Y[b]/X[b]^r
 	EVL_BEGIN
-		start = MPI_Wtime(); // send has r's
-			bufr_chunks = send.split(Env::exp_size_in_bytes());
-		m_timer_evl += MPI_Wtime() - start;
-
 		for (size_t bix = 0; bix < Env::circuit().evl_inp_cnt(); bix++)
 		{
 			start = MPI_Wtime();
@@ -241,7 +235,7 @@ void Yao::oblivious_transfer()
 					recv = EVL_RECV(); // receive X[0], X[1], Y[0], Y[1]
 				m_timer_com += MPI_Wtime() - start;
 
-				comm_sz += recv.size();
+				m_comm_sz += recv.size();
 
 				start = MPI_Wtime();
 					recv_chunks = recv.split(Env::elm_size_in_bytes());
@@ -262,16 +256,14 @@ void Yao::oblivious_transfer()
 		}
 	EVL_END
 
-	step_report(comm_sz, "ob-transfer");
+	step_report("ob-transfer");
 }
-
 
 void Yao::circuit_evaluate()
 {
 	step_init();
 
 	double start;
-	uint64_t comm_sz = 0;
 
 	Bytes bufr;
 	vector<Bytes> bufr_chunks;
@@ -305,7 +297,7 @@ void Yao::circuit_evaluate()
 			m_timer_evl += MPI_Wtime() - start;
 		EVL_END
 
-		comm_sz += m_gen_inp_masks[ix].size();
+		m_comm_sz += m_gen_inp_masks[ix].size();
 	}
 
 	GEN_BEGIN
@@ -342,7 +334,10 @@ void Yao::circuit_evaluate()
 		m_timer_evl += MPI_Wtime() - start;
 	EVL_END
 
-	comm_sz += bufr.size();
+	m_comm_sz += bufr.size();
+
+	step_report("pre-cir-evl");
+	step_init();
 
 	GEN_BEGIN // generate and send the circuit gate-by-gate
 		start = MPI_Wtime();
@@ -360,7 +355,7 @@ void Yao::circuit_evaluate()
 						GEN_SEND(bufr);
 					m_timer_com += MPI_Wtime() - start;
 
-					comm_sz += bufr.size();
+					m_comm_sz += bufr.size();
 
 					start = MPI_Wtime(); // start m_timer_gen
 				}
@@ -382,7 +377,7 @@ void Yao::circuit_evaluate()
 						bufr = EVL_RECV();
 					m_timer_com += MPI_Wtime() - start;
 
-					comm_sz += bufr.size();
+					m_comm_sz += bufr.size();
 
 					start = MPI_Wtime();
 						m_ccts[ix].recv(bufr);
@@ -392,7 +387,7 @@ void Yao::circuit_evaluate()
 		m_timer_evl += MPI_Wtime() - start;
 	EVL_END
 
-	step_report(comm_sz, "circuit-evl");
+	step_report("circuit-evl");
 
 	if (Env::circuit().evl_out_cnt() != 0)
 		proc_evl_out();
@@ -404,18 +399,15 @@ void Yao::circuit_evaluate()
 
 void Yao::proc_evl_out()
 {
-	step_init();
-
-	double start;
-	uint64_t comm_sz = 0;
-
 	EVL_BEGIN
-		start = MPI_Wtime();
+		step_init();
+
+		double start = MPI_Wtime();
 			m_evl_out = m_ccts[0].m_evl_out;
 		m_timer_evl += MPI_Wtime() - start;
-	EVL_END
 
-	step_report(comm_sz, "chk-evl-out");
+		step_report("chk-evl-out");
+	EVL_END
 }
 
 void Yao::proc_gen_out()
@@ -423,7 +415,6 @@ void Yao::proc_gen_out()
 	step_init();
 
 	double start;
-	uint64_t comm_sz = 0;
 
 	EVL_BEGIN
 		start = MPI_Wtime();
@@ -441,7 +432,7 @@ void Yao::proc_gen_out()
 		m_timer_com += MPI_Wtime() - start;
 	GEN_END
 
-	comm_sz += m_gen_out.size();
+	m_comm_sz += m_gen_out.size();
 
-	step_report(comm_sz, "chk-gen-out");
+	step_report("chk-gen-out");
 }

@@ -55,17 +55,17 @@ void parse_test(const char *file_name)
 	{
 		const Gate &g = circuit.next_gate_binary_old();
 
-		if (g.m_table.size() != 0 && g.m_table.size() != (0x01<<g.m_input.size()))
+		if (g.m_table.size() != 0 && g.m_table.size() != (0x01<<g.m_input_idx.size()))
 		{
 			std::cerr << "table-input number mismatch: " << wire_ix << std::endl;
 			exit(EXIT_FAILURE);
 		}
 
-		for (size_t jx = 0; jx < g.m_input.size(); jx++)
+		for (size_t jx = 0; jx < g.m_input_idx.size(); jx++)
 		{
-			if (g.m_input[jx] >= wire_ix)
+			if (g.m_input_idx[jx] >= wire_ix)
 			{
-				std::cerr << "input wire error: " << wire_ix << " (" << std::ios::hex << g.m_input[jx] << ")" << std::endl;
+				std::cerr << "input wire error: " << wire_ix << " (" << std::ios::hex << g.m_input_idx[jx] << ")" << std::endl;
 				exit(EXIT_FAILURE);
 			}
 		}
@@ -155,9 +155,9 @@ void max_distance_test(const char *file_name)
 	{
 		const Gate &g = circuit.next_gate_binary_old();
 
-		for (size_t ix = 0; ix < g.m_input.size(); ix++)
+		for (size_t ix = 0; ix < g.m_input_idx.size(); ix++)
 		{
-			uint64_t dist = gate_ix - g.m_input[ix];
+			uint64_t dist = gate_ix - g.m_input_idx[ix];
 
 			if (dist > max_dist)
 			{
@@ -188,21 +188,21 @@ void statistics_test(const char *file_name)
 	{
 		const Gate &g = circuit.next_gate_binary_old();
 
-		if (g.m_input.size() == 0)
+		if (g.m_input_idx.size() == 0)
 			 continue;
 
-		if (g.m_input.size() > arity.size())
+		if (g.m_input_idx.size() > arity.size())
 		{
-			arity.resize(g.m_input.size());
-			xor_gates.resize(g.m_input.size());
+			arity.resize(g.m_input_idx.size());
+			xor_gates.resize(g.m_input_idx.size());
 		}
 
-		arity[g.m_input.size()-1]++;
+		arity[g.m_input_idx.size()-1]++;
 
 		if (is_xor(g))
-			xor_gates[g.m_input.size()-1]++;
+			xor_gates[g.m_input_idx.size()-1]++;
 
-		if (g.m_input.size() == 1)
+		if (g.m_input_idx.size() == 1)
 		{
 			if (!g.m_table[0] && !g.m_table[1])
 				cnt_00++;
@@ -269,12 +269,12 @@ void use_count_test(const char *file_name)
 		const Gate &g = circuit.next_gate_binary_old();
 
 		// check if current gate uses the chosen gates
-		for (iit = g.m_input.begin(); iit != g.m_input.end(); iit++)
+		for (iit = g.m_input_idx.begin(); iit != g.m_input_idx.end(); iit++)
 			for (size_t ix = 0; ix < gates.size(); ix++)
 		{
 			if (*iit == ixs[ix])
 			{
-				gates[ix].m_ref_cnt--;
+				gates[ix].m_idx--;
 			}
 		}
 
@@ -293,9 +293,9 @@ void use_count_test(const char *file_name)
 			continue;
 		}
 
-		if (gates[i].m_ref_cnt != 0)
+		if (gates[i].m_idx != 0)
 		{
-			std::cout << ixs[i] << " : " << gates[i].m_ref_cnt << " (wrong)" << std::endl;
+			std::cout << ixs[i] << " : " << gates[i].m_idx << " (wrong)" << std::endl;
 			ret = false;
 		}
 	}
@@ -470,86 +470,61 @@ void dump_test(const char *file_name)
 //
 // 8) Remove hash table Test
 //
-void remove_hash(const char *file_name, const char *input_name)
+void remove_hash(const char *circuit_file_name, const char *input_name)
 {
-	// init Env
-	const int k = 80;
-	EnvParams params;
-	params.secu_param = k;
-	params.claw_free.init();
-	params.circuit.load_binary_old(file_name);
+	Circuit circuit;
+	circuit.load_binary_old(circuit_file_name);
 
-	Env::init(params);
+	// computing hash table size
+    uint64_t tbl_max = 0;
+	uint64_t gate_ix = 0;
 
-	// init inputs
-	std::ifstream private_file(input_name);
-	std::string input;
-	Bytes gen_inp, evl_inp, gen_out, evl_out;
+	__gnu_cxx::hash_map<uint64_t, std::pair<uint32_t, uint64_t>, my_hash_fun> hash_tbl;
+	std::priority_queue<uint32_t, std::deque<uint32_t>, std::greater<uint32_t> > avail_idx;
 
-	if (!private_file.is_open())
+	while (circuit.more_gate_binary())
 	{
-		std::cerr << "file open failed: " << input_name << std::endl;
-		exit(EXIT_FAILURE);
+		const Gate &g = circuit.next_gate_binary_old();
+
+		for (size_t jx = 0; jx < g.m_input_idx.size(); jx++)
+		{
+			assert(hash_tbl.count(g.m_input_idx[jx]) == 1);
+
+			__gnu_cxx::hash_map<uint64_t, std::pair<uint32_t, uint64_t>, my_hash_fun>::data_type
+				&E = hash_tbl[g.m_input_idx[jx]];
+
+			if (--E.second == 0)
+			{
+				avail_idx.push(E.first);
+				hash_tbl.erase(g.m_input_idx[jx]);
+			}
+		}
+
+		if (avail_idx.empty())
+		{
+			avail_idx.push(tbl_max++);
+		}
+		uint32_t idx = avail_idx.top();
+		avail_idx.pop();
+
+		hash_tbl[gate_ix] = std::make_pair(idx, g.m_idx);
+
+		gate_ix++;
 	}
 
-	private_file >> input; // 1st line is evaluator's input
-	evl_inp.from_hex(input);
+	std::cout << "avail_tbl max: " << tbl_max << std::endl;
 
-	private_file >> input; // 2nd line is generator's input
-	gen_inp.from_hex(input);
-
-	private_file.close();
-
-	evl_inp.resize((Env::circuit().evl_inp_cnt()+7)/8);
-	gen_inp.resize((Env::circuit().gen_inp_cnt()+7)/8);
-
-	std::cout << "GEN_INP: " << gen_inp.to_hex() << std::endl;
-	std::cout << "EVL_INP: " << evl_inp.to_hex() << std::endl;
-
-	Prng prng;
-
-	// ot
-	std::vector<Bytes> ot_gen_keys, ot_evl_keys;
-	for (size_t ix = 0; ix < Env::circuit().evl_inp_cnt(); ix++)
-	{
-		ot_gen_keys.push_back(prng.rand(k));
-		ot_gen_keys.push_back(prng.rand(k));
-		ot_evl_keys.push_back(ot_gen_keys[2*ix+evl_inp.get_ith_bit(ix)]);
-	}
-
-	// Garbled circuit generation/evaluation
-	std::cout << "circuit generation/evaluation" << std::endl;
-
-	clock_t start, end;
-
-	Bytes gen_inp_mask = prng.rand(Env::circuit().gen_inp_cnt());
-	Bytes rnd = prng.rand(k);
-
-	GarbledCct com_cct;
-	com_cct.gen_init(ot_gen_keys, gen_inp_mask, rnd);
-
-	// circuit committing test
-	start = clock();
-	while (Env::circuit().more_gate_binary())
-	{
-		com_cct.com_next_gate(Env::circuit().next_gate_binary_old());
-	}
-	std::cout << "Time to commit/construct circuit: "
-			  << (clock() - start)/(double)CLOCKS_PER_SEC << std::endl;
-	std::cout << "max_use_size: " << com_cct.m_max_map_size << std::endl;
-
-
-	std::string of_name(file_name);
+	std::string of_name(circuit_file_name);
 	of_name += ".hash-free";
 	std::ofstream of(of_name.c_str(), std::ios::out | std::ios::binary);
 
-	Env::circuit().reload_binary_old();
+	circuit.reload_binary_old();
 
-	uint64_t gate_cnt = Env::circuit().gate_cnt();
-	uint32_t gen_inp_cnt = Env::circuit().gen_inp_cnt();
-	uint32_t evl_inp_cnt = Env::circuit().evl_inp_cnt();
-	uint32_t gen_out_cnt = Env::circuit().gen_out_cnt();
-	uint32_t evl_out_cnt = Env::circuit().evl_out_cnt();
+	uint64_t gate_cnt = circuit.gate_cnt();
+	uint32_t gen_inp_cnt = circuit.gen_inp_cnt();
+	uint32_t evl_inp_cnt = circuit.evl_inp_cnt();
+	uint32_t gen_out_cnt = circuit.gen_out_cnt();
+	uint32_t evl_out_cnt = circuit.evl_out_cnt();
 
 	of.write(reinterpret_cast<char*>(&gate_cnt), sizeof(uint64_t));
 	of.write(reinterpret_cast<char*>(&gen_inp_cnt), sizeof(uint32_t));
@@ -558,67 +533,67 @@ void remove_hash(const char *file_name, const char *input_name)
 	of.write(reinterpret_cast<char*>(&evl_out_cnt), sizeof(uint32_t));
 
 	uint8_t idx_sz = 0;
-	if (com_cct.m_max_map_size <= UINT8_MAX)
+	if (tbl_max <= UINT8_MAX)
 	{
 		idx_sz = 1;
 		of.write(reinterpret_cast<char*>(&idx_sz), sizeof(uint8_t));
-		of.write(reinterpret_cast<char*>(&com_cct.m_max_map_size), sizeof(uint8_t));
-		std::cout << "idx_sz: " << (int)idx_sz << ", max: " << com_cct.m_max_map_size << std::endl;
+		of.write(reinterpret_cast<char*>(&tbl_max), sizeof(uint8_t));
+		std::cout << "idx_sz: " << (int)idx_sz << ", max: " << tbl_max << std::endl;
 	}
-	else if (com_cct.m_max_map_size <= UINT16_MAX)
+	else if (tbl_max <= UINT16_MAX)
 	{
 		idx_sz = 2;
 		of.write(reinterpret_cast<char*>(&idx_sz), sizeof(uint8_t));
-		of.write(reinterpret_cast<char*>(&com_cct.m_max_map_size), sizeof(uint16_t));
-		std::cout << "idx_sz: " << (int)idx_sz << ", max: " << com_cct.m_max_map_size << std::endl;
+		of.write(reinterpret_cast<char*>(&tbl_max), sizeof(uint16_t));
+		std::cout << "idx_sz: " << (int)idx_sz << ", max: " << tbl_max << std::endl;
 	}
-	else if (com_cct.m_max_map_size <= UINT32_MAX)
+	else if (tbl_max <= UINT32_MAX)
 	{
 		idx_sz = 4;
 		of.write(reinterpret_cast<char*>(&idx_sz), sizeof(uint8_t));
-		of.write(reinterpret_cast<char*>(&com_cct.m_max_map_size), sizeof(uint32_t));
-		std::cout << "idx_sz: " << (int)idx_sz << ", max: " << com_cct.m_max_map_size << std::endl;
+		of.write(reinterpret_cast<char*>(&tbl_max), sizeof(uint32_t));
+		std::cout << "idx_sz: " << (int)idx_sz << ", max: " << tbl_max << std::endl;
 	}
-	else if (com_cct.m_max_map_size <= UINT64_MAX)
+	else if (tbl_max <= UINT64_MAX)
 	{
 		idx_sz = 8;
 		of.write(reinterpret_cast<char*>(&idx_sz), sizeof(uint8_t));
-		of.write(reinterpret_cast<char*>(&com_cct.m_max_map_size), sizeof(uint64_t));
-		std::cout << "idx_sz: " << (int)idx_sz << ", max: " << com_cct.m_max_map_size << std::endl;
+		of.write(reinterpret_cast<char*>(&tbl_max), sizeof(uint64_t));
+		std::cout << "idx_sz: " << (int)idx_sz << ", max: " << tbl_max << std::endl;
 	}
 
-	uint32_t tbl_max = 0;
-	uint64_t gate_ix = 0;
+	tbl_max = 0;
+	gate_ix = 0;
 
-	__gnu_cxx::hash_map<uint64_t, std::pair<uint32_t, uint64_t>, my_hash_fun> hash_tbl;
-	std::priority_queue<uint32_t, std::deque<uint32_t>, std::greater<uint32_t> > avail_idx;
+	hash_tbl.clear();
+	while(!avail_idx.empty()) avail_idx.pop();
 
-	while (Env::circuit().more_gate_binary())
+	while (circuit.more_gate_binary())
 	{
-		const Gate &g = Env::circuit().next_gate_binary_old();
+		const Gate &g = circuit.next_gate_binary_old();
 
 		uint8_t tbl = 0;
 		for (size_t jx = 0; jx < g.m_table.size(); jx++)
 			tbl |= (g.m_table[jx]<<jx);
 		tbl &= 0x0f;
 
-		uint8_t tag = (g.m_tag<<5) | ((g.m_input.size()==2)<<4) | tbl;
+		uint8_t tag = (g.m_tag<<5) | ((g.m_input_idx.size()==2)<<4) | tbl;
 
 		of.write(reinterpret_cast<char*>(&tag), sizeof(tag));
 
-		for (size_t jx = 0; jx < g.m_input.size(); jx++)
+		for (size_t jx = 0; jx < g.m_input_idx.size(); jx++)
 		{
-			assert(hash_tbl.count(g.m_input[jx]) == 1);
+			assert(hash_tbl.count(g.m_input_idx[jx]) == 1);
 
 			__gnu_cxx::hash_map<uint64_t, std::pair<uint32_t, uint64_t>, my_hash_fun>::data_type
-				&E = hash_tbl[g.m_input[jx]];
+				&E = hash_tbl[g.m_input_idx[jx]];
 
 			of.write(reinterpret_cast<const char*>(&(E.first)), idx_sz);
 
 			if (--E.second == 0)
 			{
 				avail_idx.push(E.first);
-				hash_tbl.erase(g.m_input[jx]);
+				hash_tbl.erase(g.m_input_idx[jx]);
 			}
 		}
 
@@ -632,12 +607,11 @@ void remove_hash(const char *file_name, const char *input_name)
 		// where current gate goes
 		of.write(reinterpret_cast<const char*>(&idx), idx_sz);
 
-		hash_tbl[gate_ix] = std::make_pair(idx, g.m_ref_cnt);
+		hash_tbl[gate_ix] = std::make_pair(idx, g.m_idx);
 
 		gate_ix++;
 	}
 
-	std::cout << "hash_max: " << com_cct.m_max_map_size << ", avail_tbl max: " << tbl_max << std::endl;
 	std::cout << "hash tbl size: " << hash_tbl.size() << ", avail size: " << avail_idx.size() << std::endl;
 	of.close();
 }
@@ -657,7 +631,7 @@ void parse_test_hash_free(const char *file_name)
 	{
 		const Gate &g = circuit.next_gate_binary();
 
-		if (g.m_table.size() != 0 && g.m_table.size() != (0x01<<g.m_input.size()))
+		if (g.m_table.size() != 0 && g.m_table.size() != (0x01<<g.m_input_idx.size()))
 		{
 			std::cerr << "table-input number mismatch: " << wire_ix << std::endl;
 			exit(EXIT_FAILURE);
@@ -745,7 +719,7 @@ void dump_test_hash_free(const char *file_name)
 	while (circuit.more_gate_binary())
 	{
 		const Gate &g = circuit.next_gate_binary();
-		std::cout << idx++ << ", " << g << ", cnt: " << g.m_ref_cnt << std::endl;
+		std::cout << idx++ << ", " << g << ", cnt: " << g.m_idx << std::endl;
 	}
 }
 
@@ -828,12 +802,20 @@ void yao_test_hash_free(const char *file_name, const char *input_name)
 	start = clock();
 	while (Env::circuit().more_gate_binary())
 	{
-		com_cct.com_next_gate(Env::circuit().next_gate_binary());
+		const Gate &g = Env::circuit().next_gate_binary();
+		com_cct.com_next_gate(g);
 	}
 	std::cout << "Time to commit/construct circuit: "
 			  << (clock() - start)/(double)CLOCKS_PER_SEC << std::endl;
 
 	Env::circuit().reload_binary();
+
+	for (size_t ix = 0; ix < Env::circuit().gen_inp_cnt(); ix++)
+	{
+		// send the generator's input keys to the evaluator
+		int bit_value = (gen_inp[ix/8]>>(ix%8)) & 0x01;
+		evl_cct.m_M.push_back(gen_cct.m_M[2*ix + bit_value]);
+	}
 
 	// circuit generation/evaluation test
 	start = clock();
@@ -843,13 +825,13 @@ void yao_test_hash_free(const char *file_name, const char *input_name)
 		gen_cct.gen_next_gate(g);
 		evl_cct.recv(gen_cct.send());
 
-		if (g.m_tag == Circuit::GEN_INP)
-		{
-			// send the generator's input keys to the evaluator
-			int bit_value = (gen_inp[gen_inp_ix/8]>>(gen_inp_ix%8)) & 0x01;
-			evl_cct.m_M.push_back(gen_cct.m_M[2*gen_inp_ix + bit_value]);
-			gen_inp_ix++;
-		}
+//		if (g.m_tag == Circuit::GEN_INP)
+//		{
+//			// send the generator's input keys to the evaluator
+//			int bit_value = (gen_inp[gen_inp_ix/8]>>(gen_inp_ix%8)) & 0x01;
+//			evl_cct.m_M.push_back(gen_cct.m_M[2*gen_inp_ix + bit_value]);
+//			gen_inp_ix++;
+//		}
 
 		evl_cct.evl_next_gate(g);
 		gate_ix++;
@@ -860,21 +842,6 @@ void yao_test_hash_free(const char *file_name, const char *input_name)
 	std::cout << "GEN_OUT: " << evl_cct.m_gen_out.to_hex() << std::endl;
 	std::cout << "EVL_OUT: " << evl_cct.m_evl_out.to_hex() << std::endl;
 }
-
-//int main(int argc, char *argv[])
-//{
-//	Prng prng;
-//	Bytes a = prng.rand(128);
-//
-//	std::cout << a.to_hex() << std::endl;
-//	__m128i ma;
-//
-//	ma = _mm_loadu_si128((__m128i*)&(a[0]));
-//	std::cout << "a.get_ith_bit(0): " << (int)a.get_ith_bit(0) << std::endl;
-//	std::cout << "_mm_extract_epi8(ma,0)&0x01: " << (int)(_mm_extract_epi8(ma,0)&0x01) << std::endl;
-//
-//	return 0;
-//}
 
 int main(int argc, char *argv[])
 {
@@ -895,8 +862,6 @@ int main(int argc, char *argv[])
 				  << "12: garbled test (hash free)" << std::endl;
 		exit(EXIT_FAILURE);
 	}
-
-	Circuit circuit;
 
 	char *endptr;
 	int choice = strtol(argv[1], &endptr, 10);

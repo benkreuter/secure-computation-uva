@@ -24,6 +24,7 @@ public:
 	{
 		m_g.random();
 		m_h.random();
+		m_h.fast_exp();
 	}
 
 	Bytes to_bytes() const
