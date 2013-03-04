@@ -2,7 +2,7 @@
 
 wget http://apache.spinellicreations.com//apr/apr-1.4.6.tar.gz
 tar -xvf apr-1.4.6.tar.gz
-cd dep/apr-1.4.6/
+cd apr-1.4.6/
 ./configure
 make install
 cd ..
